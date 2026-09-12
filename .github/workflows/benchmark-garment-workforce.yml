@@ -1,0 +1,102 @@
+name: benchmark-garment-workforce
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/benchmark-garment-workforce.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: productivity/garment-workforce-planning
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: productivity/garment-workforce-planning/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Train and temporal benchmark
+        run: python -m src.train --config config.yaml
+      - name: Solve example workforce allocation
+        run: python -m src.plan --config config.yaml
+      - name: Build benchmark summary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          metrics = json.loads(Path('reports/metrics.json').read_text())
+          comparison = pd.read_csv('reports/model_comparison.csv')
+          allocation_files = sorted(Path('reports').glob('allocation_plan_*.csv'))
+          allocation = pd.read_csv(allocation_files[-1])
+          date = allocation['date'].iloc[0]
+          current_mean = allocation['baseline_productivity'].mean()
+          planned_mean = allocation['estimated_productivity'].mean()
+          workers = int(allocation['optimized_workers'].sum())
+          ot_blocks = int(allocation['overtime_blocks'].sum())
+
+          lines = [
+              '# Benchmark',
+              '',
+              '## Temporal holdout',
+              '',
+              f"- Selected model: `{metrics['selected_model']}`",
+              f"- Holdout period: {metrics['holdout_start']} to {metrics['holdout_end']}",
+              f"- Development rows: {metrics['development_rows']}",
+              f"- Holdout rows: {metrics['holdout_rows']}",
+              f"- MAE: {metrics['mae']:.4f}",
+              f"- RMSE: {metrics['rmse']:.4f}",
+              f"- R²: {metrics['r2']:.4f}",
+              f"- Target-attainment accuracy: {metrics['target_attainment_accuracy']:.3%}",
+              '',
+              '## OR planning example',
+              '',
+              f'- Planning date: {date}',
+              f'- Teams/lines in case: {len(allocation)}',
+              f'- Conserved headcount: {workers}',
+              f'- Overtime blocks used: {ot_blocks}',
+              f'- Mean baseline surrogate productivity: {current_mean:.4f}',
+              f'- Mean post-allocation surrogate productivity: {planned_mean:.4f}',
+              '',
+              'The allocation output is a model-based what-if result, not a causal estimate of intervention impact.',
+              '',
+              '## Cross-validation comparison',
+              '',
+              comparison.to_markdown(index=False),
+              '',
+          ]
+          Path('reports/BENCHMARK.md').write_text('\n'.join(lines))
+          PY
+      - name: Upload trained model
+        uses: actions/upload-artifact@v4
+        with:
+          name: garment-productivity-model
+          path: productivity/garment-workforce-planning/artifacts/
+      - name: Commit benchmark reports
+        shell: bash
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f productivity/garment-workforce-planning/reports/BENCHMARK.md
+          git add -f productivity/garment-workforce-planning/reports/metrics.json
+          git add -f productivity/garment-workforce-planning/reports/model_comparison.csv
+          git add -f productivity/garment-workforce-planning/reports/temporal_holdout_predictions.csv
+          git add -f productivity/garment-workforce-planning/reports/allocation_plan_*.csv
+          if git diff --cached --quiet; then
+            echo "Benchmark reports unchanged."
+          else
+            git commit -m "Add garment workforce benchmark results"
+            git push
+          fi
