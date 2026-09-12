@@ -1,0 +1,11 @@
+{
+  "mae": 0.09088296554443294,
+  "rmse": 0.13479447360020505,
+  "r2": 0.30595410031543824,
+  "target_attainment_accuracy": 0.5511811023622047,
+  "selected_model": "extra_trees",
+  "development_rows": 943,
+  "holdout_rows": 254,
+  "holdout_start": "2015-02-26",
+  "holdout_end": "2015-03-11"
+}
