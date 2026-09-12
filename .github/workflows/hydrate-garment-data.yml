@@ -1,0 +1,42 @@
+name: hydrate-garment-workforce-data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hydrate-garment-data.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  hydrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: productivity/garment-workforce-planning
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download and validate dataset
+        run: |
+          pip install pandas PyYAML
+          python scripts/download_data.py
+          python scripts/validate_data.py
+      - name: Commit compact raw dataset and integrity manifest
+        shell: bash
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add productivity/garment-workforce-planning/data/raw/garments_worker_productivity.csv
+          git add productivity/garment-workforce-planning/data/raw/manifest.json
+          if git diff --cached --quiet; then
+            echo "Dataset already up to date."
+          else
+            git commit -m "Add garment workforce productivity data"
+            git push
+          fi

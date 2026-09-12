@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+**/artifacts/*.joblib
+**/artifacts/*.json
+**/reports/*.csv
+**/reports/*.json
+!**/reports/README.md
+.DS_Store
+.idea/
+.vscode/

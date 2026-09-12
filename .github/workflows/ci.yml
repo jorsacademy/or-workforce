@@ -1,0 +1,39 @@
+name: or-workforce-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "productivity/garment-workforce-planning/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "productivity/garment-workforce-planning/**"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  garment-workforce-planning:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: productivity/garment-workforce-planning
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: productivity/garment-workforce-planning/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+      - name: Validate raw data when present
+        shell: bash
+        run: |
+          if [ -f data/raw/garments_worker_productivity.csv ]; then
+            python scripts/validate_data.py
+          else
+            echo "Raw dataset hydration is pending."
+          fi

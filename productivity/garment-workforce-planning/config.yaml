@@ -1,0 +1,20 @@
+data:
+  path: data/raw/garments_worker_productivity.csv
+  target: actual_productivity
+  expected_rows: 1197
+
+model:
+  random_state: 42
+  cv_splits: 5
+  temporal_holdout_fraction: 0.20
+  candidates:
+    - ridge
+    - random_forest
+    - extra_trees
+
+optimization:
+  worker_flex: 3
+  overtime_block_minutes: 60
+  max_overtime_blocks_per_team: 20
+  overtime_budget_blocks: 80
+  overtime_penalty: 0.001
